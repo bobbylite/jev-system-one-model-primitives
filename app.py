@@ -1,6 +1,6 @@
 """FastAPI backend: exposes everything Jev used to decide, for the UI.
 
-    uv run uvicorn app:app --reload
+    uv run uvicorn app:app --reload   # serves web/dist (run `npm run build` first)
 """
 import json
 import time
@@ -17,7 +17,7 @@ import chaos
 import cult
 import sandwich
 
-STATIC = Path(__file__).parent / "static"
+DIST = Path(__file__).parent / "web" / "dist"  # built by `npm run build`
 
 
 @asynccontextmanager
@@ -208,9 +208,14 @@ async def chaos_route(req: ChaosRequest):
                        urgency_max=len(chaos.QUESTIONS["urgency"].criteria) - 1, latency_ms=latency)
 
 
-@app.get("/")
-async def index():
-    return FileResponse(STATIC / "index.html")
+if DIST.is_dir():
+    app.mount("/assets", StaticFiles(directory=DIST / "assets"), name="assets")
 
+    @app.get("/")
+    async def index():
+        return FileResponse(DIST / "index.html")
+else:  # no build yet: the API still works, and `npm run dev` serves the UI
 
-app.mount("/static", StaticFiles(directory=STATIC), name="static")
+    @app.get("/")
+    async def index():
+        raise HTTPException(503, "UI not built. Run `npm install && npm run build`, or `npm run dev` for the dev server.")

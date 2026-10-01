@@ -132,15 +132,27 @@ BLT                      -> SANDWICH (0.9x)
 
 ## Web UI
 
-A dark, flat single-page UI (static HTML) backed by FastAPI. It shows every
-signal Jev returned, the criteria behind each question, and the math the code
-used to reach the verdict.
+A dark, flat single-page UI built with React 19, TypeScript and Vite, backed by
+FastAPI. It shows every signal Jev returned, the criteria behind each question,
+and the math the code used to reach the verdict.
 
 ```sh
-uv sync                                  # or: .venv/bin/pip install -e .
+uv sync                                  # Python deps (or: .venv/bin/pip install -e .)
+npm install && npm run build             # builds the UI into web/dist
 set -a; source .env; set +a
-uv run uvicorn app:app --reload          # http://127.0.0.1:8000
+uv run uvicorn app:app --reload          # http://127.0.0.1:8000 serves the API and the built UI
 ```
+
+For front-end work, run the API as above and, in a second terminal, `npm run dev`.
+Vite serves the UI with hot reload at http://localhost:5173 and proxies `/api` to
+FastAPI on port 8000. `npm run typecheck` runs `tsc`.
+
+**Whiteboard:** the icon in the top-right corner opens a [tldraw](https://tldraw.dev/)
+whiteboard in a dark-themed modal. It's lazy-loaded, so tldraw is only downloaded the
+first time you open it, and drawings persist in the browser (IndexedDB). tldraw runs in
+development mode for free, but production deployments need a
+[license key](https://tldraw.dev/pricing). Put it in `.env.local` as
+`VITE_TLDRAW_LICENSE_KEY=...` before building.
 
 The UI has tabs (`#sandwich`, `#cult`, `#chaos`), one per Jev primitive:
 
@@ -151,7 +163,8 @@ The UI has tabs (`#sandwich`, `#cult`, `#chaos`), one per Jev primitive:
 | Chaos | Choice (pick one) + Noul + Score fan-out | `chaos.py`, `POST /api/chaos/route` |
 
 - `app.py`: FastAPI + Pydantic backend
-- `static/`: `index.html` shell, `style.css`, and one JS file per tab. No build step.
+- `web/`: the React + TypeScript app (`src/views/` has one component per tab, `src/api.ts` has the typed API contract, `src/Whiteboard.tsx` is the tldraw modal)
+- `web/dist/`: the build output FastAPI serves (git-ignored)
 - Chaos tab: the auto-route confidence threshold is adjustable in the browser and flips the decision without calling Jev again.
 - Cult tab: weights are adjustable in the browser and recompute the index without calling Jev again.
 

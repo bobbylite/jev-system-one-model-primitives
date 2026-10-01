@@ -1,7 +1,7 @@
 [project]
 name = "jev-system-one-model-primitives"
 version = "0.1.0"
-description = "Jev System One primitives (Noul, Score, Choice) demoed with a FastAPI backend and a static UI."
+description = "Jev System One primitives (Noul, Score, Choice) demoed with a FastAPI backend and a React + TypeScript UI."
 requires-python = ">=3.11"
 dependencies = [
     "typesafe-sdk",

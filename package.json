@@ -1,0 +1,26 @@
+{
+  "name": "jev-system-one-model-primitives-web",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "description": "React + TypeScript front end for the Jev System One demos. FastAPI serves the build.",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "typecheck": "tsc --noEmit",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "tldraw": "^5.5.0"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.3",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.1.1",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.1"
+  }
+}
