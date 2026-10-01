@@ -208,14 +208,12 @@ async def chaos_route(req: ChaosRequest):
                        urgency_max=len(chaos.QUESTIONS["urgency"].criteria) - 1, latency_ms=latency)
 
 
-if DIST.is_dir():
-    app.mount("/assets", StaticFiles(directory=DIST / "assets"), name="assets")
-
-    @app.get("/")
-    async def index():
-        return FileResponse(DIST / "index.html")
-else:  # no build yet: the API still works, and `npm run dev` serves the UI
-
-    @app.get("/")
-    async def index():
+@app.get("/")
+async def index():
+    page = DIST / "index.html"
+    if not page.is_file():  # no build yet: the API still works, and `npm run dev` serves the UI
         raise HTTPException(503, "UI not built. Run `npm install && npm run build`, or `npm run dev` for the dev server.")
+    return FileResponse(page)
+
+
+app.mount("/assets", StaticFiles(directory=DIST / "assets", check_dir=False), name="assets")
