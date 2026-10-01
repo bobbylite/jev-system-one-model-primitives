@@ -8,6 +8,7 @@
       "program": "${workspaceFolder}/sandwich.py",
       "python": "${workspaceFolder}/.venv/bin/python",
       "envFile": "${workspaceFolder}/.env",
+      "preLaunchTask": "Setup (no UI build)",
       "console": "integratedTerminal"
     },
     {
@@ -20,10 +21,11 @@
         "${input:foods}"
       ],
       "envFile": "${workspaceFolder}/.env",
+      "preLaunchTask": "Setup (no UI build)",
       "console": "integratedTerminal"
     },
     {
-      "name": "Web UI: FastAPI (debug)",
+      "name": "Web UI: build + FastAPI (debug)",
       "type": "debugpy",
       "request": "launch",
       "module": "uvicorn",
@@ -35,8 +37,46 @@
       ],
       "python": "${workspaceFolder}/.venv/bin/python",
       "envFile": "${workspaceFolder}/.env",
-      "jinja": true,
+      "preLaunchTask": "Setup & build",
+      "console": "integratedTerminal",
+      "serverReadyAction": {
+        "pattern": "Uvicorn running on (https?://\\S+)",
+        "uriFormat": "%s",
+        "action": "openExternally"
+      }
+    },
+    {
+      "name": "Web UI: FastAPI API only (part of Full stack)",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "uvicorn",
+      "args": [
+        "app:app",
+        "--reload",
+        "--port",
+        "8000"
+      ],
+      "python": "${workspaceFolder}/.venv/bin/python",
+      "envFile": "${workspaceFolder}/.env",
       "console": "integratedTerminal"
+    },
+    {
+      "name": "Web UI: Vite dev server",
+      "type": "node-terminal",
+      "request": "launch",
+      "command": "npm run dev -- --open",
+      "cwd": "${workspaceFolder}"
+    }
+  ],
+  "compounds": [
+    {
+      "name": "Full stack: FastAPI + Vite (hot reload)",
+      "configurations": [
+        "Web UI: FastAPI API only (part of Full stack)",
+        "Web UI: Vite dev server"
+      ],
+      "preLaunchTask": "Setup (no UI build)",
+      "stopAll": true
     }
   ],
   "inputs": [

@@ -1,0 +1,23 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Setup & build",
+      "detail": "Create .venv, install Python + npm deps, create .env, build the UI. Safe to re-run.",
+      "type": "shell",
+      "command": "bash scripts/setup.sh",
+      "options": { "cwd": "${workspaceFolder}" },
+      "presentation": { "reveal": "silent", "panel": "shared", "clear": true },
+      "problemMatcher": []
+    },
+    {
+      "label": "Setup (no UI build)",
+      "detail": "Same as above but skips the production UI build; use with the Vite dev server.",
+      "type": "shell",
+      "command": "bash scripts/setup.sh --no-build",
+      "options": { "cwd": "${workspaceFolder}" },
+      "presentation": { "reveal": "silent", "panel": "shared", "clear": true },
+      "problemMatcher": []
+    }
+  ]
+}

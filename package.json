@@ -3,6 +3,9 @@
   "version": "0.2.0",
   "private": true,
   "type": "module",
+  "engines": {
+    "node": ">=22.12.0"
+  },
   "description": "React + TypeScript front end for the Jev System One demos. FastAPI serves the build.",
   "scripts": {
     "dev": "vite",

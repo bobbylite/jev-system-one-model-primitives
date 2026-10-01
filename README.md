@@ -137,11 +137,16 @@ calibration on your own data instead of assuming them.
 
 ## Setup
 
+Prerequisites: Python 3.11+, Node 22.12+ (needed by Vite and tldraw), and optionally
+[uv](https://docs.astral.sh/uv/). One command does everything and is safe to re-run:
+
 ```sh
-python3 -m venv .venv
-.venv/bin/pip install -e .
-cp .env.example .env   # then put your key from https://console.typesafe.ai/ in .env
+bash scripts/setup.sh    # venv + Python deps, npm deps, .env from .env.example, UI build
 ```
+
+Then put your key from https://console.typesafe.ai/ in `.env`. The script checks your
+Python and Node versions, uses `uv sync` if uv is installed (otherwise `venv` + `pip`),
+and warns if `TYPESAFE_API_KEY` isn't set.
 
 ## Run
 
@@ -200,11 +205,15 @@ The UI has tabs (`#sandwich`, `#cult`, `#chaos`), one per Jev primitive:
 
 Open the folder, then use **Run and Debug** and pick:
 
-- **Sandwich: built-in examples**
-- **Sandwich: custom foods** (prompts for a food)
-- **Web UI: FastAPI (debug)** (serves the UI on port 8000)
+- **Web UI: build + FastAPI (debug)**: sets everything up, builds the UI, starts the
+  API with the debugger attached and opens http://127.0.0.1:8000
+- **Full stack: FastAPI + Vite (hot reload)**: runs setup, then the API and the Vite
+  dev server together (the browser opens on port 5173; stopping one stops both)
+- **Sandwich: built-in examples** / **Sandwich: custom foods** (prompts for a food): the CLI demo
 
-Both use `.venv` and load `TYPESAFE_API_KEY` from `.env`.
+Each one runs the **Setup** task first (`scripts/setup.sh`), so a fresh clone works
+without any manual steps. Python launches use `.venv` and load `TYPESAFE_API_KEY` from `.env`.
+The tasks are also available from **Terminal → Run Task**.
 
 ## Tuning
 

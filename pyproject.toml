@@ -8,3 +8,11 @@ dependencies = [
     "fastapi",
     "uvicorn[standard]",
 ]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+# Explicit list: auto-discovery fails once node_modules/ and web/ sit next to the .py files.
+py-modules = ["app", "chaos", "cult", "sandwich"]
