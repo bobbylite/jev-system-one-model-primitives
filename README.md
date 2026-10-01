@@ -7,6 +7,66 @@ code owns the policy that turns them into decisions.
 
 The original CLI version of the sandwich demo is `sandwich.py`. A web UI covering all three is below.
 
+## Why TypeSafe and Jev are powerful
+
+Most "AI features" today are a prompt, a text reply, and a parser that hopes the reply
+is well formed. TypeSafe flips that around. Its **System One** models are built to
+make fast, structured decisions that software can use directly, and **Jev** is the
+first of them. Instead of writing prose, Jev returns **typed answers and
+probabilities**. It doesn't write replies, produce code, or explain itself. Your code
+stays in charge and Jev supplies the common sense that ordinary code can't.
+See [System One](https://docs.typesafe.ai/concepts/system-one) for the full concept.
+
+Why that is useful, and where this repo shows it:
+
+- **Typed output, no parsing.** Answers arrive as a `Noul` probability, a `Score`
+  position on ordered levels, or a `Choice` among options (see
+  [primitives](https://docs.typesafe.ai/primitives)). There's no prompt-and-parse
+  step to break, so `resp.nouls["bread"].noul` is just a float you can multiply.
+- **Calibrated probabilities.** The models are trained so their probabilities reflect
+  real uncertainty. That makes thresholds meaningful: the Chaos tab auto-routes only
+  when `Choice` [confidence](https://docs.typesafe.ai/confidence) clears a bar, and
+  sends everything else to human triage.
+- **Atomic questions, composed in code.** One broad question hides several judgments.
+  Sandwich asks five narrow yes/no questions and combines them with plain arithmetic
+  you can read, test and change. This is the core of
+  [how to build with System One](https://docs.typesafe.ai/concepts/how-to-build-with-system-one):
+  control flow, rules and side effects stay in code.
+- **Re-tune policy without re-running inference.** The raw judgments are reusable
+  data. Drag the weights in the Cult tab or the threshold in the Chaos tab and the
+  verdict changes instantly in the browser, with no new API call. That's the
+  [composite scoring](https://docs.typesafe.ai/patterns/composite-scoring) pattern.
+- **Fan out in one round trip.** Independent questions over the same state run in
+  parallel. Chaos asks a `Choice`, a `Noul` and a `Score` together and lets code use
+  the answers it needs, which is
+  [speculative fan-out](https://docs.typesafe.ai/patterns/fan-out). The trade-off is
+  that you pay tokens for answers you may discard.
+- **Inspectable, so debuggable.** Every signal, criterion and probability is visible
+  in the UI. When a verdict looks wrong you can see whether the model, the question
+  wording or your own weights caused it.
+
+Typed output guarantees the *interface*, not the truth. Validate thresholds on your
+own data before trusting them.
+
+### The three primitives in this repo
+
+| Primitive | Question it answers | Demo | Code owns |
+| --- | --- | --- | --- |
+| [Noul](https://docs.typesafe.ai/primitives/noul) | Does this condition hold? (probability of yes) | Is it a sandwich? | Weights and the sandwich / contested / not thresholds |
+| [Score](https://docs.typesafe.ai/primitives/score) | How much, along an ordered scale? | How much of a cult is it? | Dimension weights and tier labels |
+| [Choice](https://docs.typesafe.ai/primitives/choice) | Which one of these? | Route the chaos | Confidence cutoff and priority from urgency and anger |
+
+### TypeSafe documentation
+
+- [Documentation index](https://docs.typesafe.ai/llms.txt) and [introduction](https://docs.typesafe.ai/introduction)
+- [System One](https://docs.typesafe.ai/concepts/system-one) and [how to build with it](https://docs.typesafe.ai/concepts/how-to-build-with-system-one)
+- [State](https://docs.typesafe.ai/concepts/state) and [use-case map](https://docs.typesafe.ai/concepts/use-case-map)
+- Primitives: [overview](https://docs.typesafe.ai/primitives), [Noul](https://docs.typesafe.ai/primitives/noul), [Score](https://docs.typesafe.ai/primitives/score), [Choice](https://docs.typesafe.ai/primitives/choice)
+- [Confidence](https://docs.typesafe.ai/confidence)
+- Patterns: [composite scoring](https://docs.typesafe.ai/patterns/composite-scoring), [speculative fan-out](https://docs.typesafe.ai/patterns/fan-out)
+- [Python SDK](https://docs.typesafe.ai/sdk/python) and [HTTP API](https://docs.typesafe.ai/api)
+- [Get an API key](https://console.typesafe.ai/)
+
 ## Setup
 
 ```sh
@@ -42,7 +102,7 @@ set -a; source .env; set +a
 uv run uvicorn app:app --reload          # http://127.0.0.1:8000
 ```
 
-The UI has tabs (`#sandwich`, `#cult`), one per Jev primitive:
+The UI has tabs (`#sandwich`, `#cult`, `#chaos`), one per Jev primitive:
 
 | Tab | Primitive | Backend |
 | --- | --- | --- |
