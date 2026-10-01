@@ -48,6 +48,34 @@ Why that is useful, and where this repo shows it:
 Typed output guarantees the *interface*, not the truth. Validate thresholds on your
 own data before trusting them.
 
+### What is Jev?
+
+Jev is TypeSafe's flagship model and the first **System One** model: a model built
+to answer typed *questions* about some *state* and return structured results
+directly, with no text generation and no parsing. You ask in plain English and get
+back a Noul probability, a Score, or a Choice with probabilities and confidence.
+
+**How it's trained: RLCD.** TypeSafe trains its models with **reinforcement learning
+for calibrated decisions (RLCD)**. The docs contrast it with RLHF, the method behind
+most chat assistants:
+
+| | RLHF (chat models) | RLCD (Jev) |
+| --- | --- | --- |
+| Teaches the model to | Say things people prefer | Make constrained decisions with calibrated uncertainty |
+| Output | Generated text | Decisions and probabilities |
+| Optimized for | Conversation | Production systems where code needs a narrow decision it can inspect and act on |
+
+The goal is that a higher probability really does mean a greater chance the answer is
+correct. That's what *calibrated* means: outcomes Jev scores at 0.2 should happen
+about 20% of the time, outcomes at 0.8 about 80%, and so on. It's what makes the
+thresholds in this repo (auto-route at 0.70 confidence, the 0.35 / 0.65 sandwich
+cutoffs) something you can reason about instead of guess at.
+
+Sources: [System One](https://docs.typesafe.ai/concepts/system-one) and the
+[AI primer](https://docs.typesafe.ai/introduction/machine-learning-primer). The
+docs don't publish Jev's size, architecture or base model, so this README doesn't
+make claims about them. Calibration is a design goal, so check it on your own data.
+
 ### Is Jev just another classifier?
 
 Partly. Jev's output has the same shape as a classifier's: a label or a probability
