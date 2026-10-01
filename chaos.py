@@ -46,5 +46,5 @@ EXAMPLES = [
     "I love you guys. That's it. That's the message.",
     "My account is locked and the reset link was sent to my ex's email.",
     "A man in a gorilla suit keeps showing up on your checkout page.",
-    "If this isn't fixed by Friday I'm telling everyone about your CEO's haircut.",
+    "If this isn't fixed by Friday I'm posting a very angry review.",
 ]

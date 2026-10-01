@@ -85,4 +85,4 @@ TIERS = [  # (upper bound of composite 0..1, label)
     (1.01, "Full cult"),
 ]
 EXAMPLES = ["CrossFit", "Apple fans", "A book club", "Trader Joe's loyalists", "Peloton", "Star Trek conventions",
-            "The Church of Scientology", "A startup with a 'family' culture", "Disney adults", "A Tuesday pub quiz team"]
+            "A sourdough baking club", "A startup with a 'family' culture", "Disney adults", "A Tuesday pub quiz team"]
