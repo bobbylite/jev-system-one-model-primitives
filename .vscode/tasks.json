@@ -7,7 +7,7 @@
       "type": "shell",
       "command": "bash scripts/setup.sh",
       "options": { "cwd": "${workspaceFolder}" },
-      "presentation": { "reveal": "silent", "panel": "shared", "clear": true },
+      "presentation": { "reveal": "always", "panel": "shared", "clear": true },
       "problemMatcher": []
     },
     {
@@ -16,7 +16,7 @@
       "type": "shell",
       "command": "bash scripts/setup.sh --no-build",
       "options": { "cwd": "${workspaceFolder}" },
-      "presentation": { "reveal": "silent", "panel": "shared", "clear": true },
+      "presentation": { "reveal": "always", "panel": "shared", "clear": true },
       "problemMatcher": []
     }
   ]
