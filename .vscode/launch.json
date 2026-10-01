@@ -1,0 +1,50 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Sandwich: built-in examples",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/sandwich.py",
+      "python": "${workspaceFolder}/.venv/bin/python",
+      "envFile": "${workspaceFolder}/.env",
+      "console": "integratedTerminal"
+    },
+    {
+      "name": "Sandwich: custom foods",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/sandwich.py",
+      "python": "${workspaceFolder}/.venv/bin/python",
+      "args": [
+        "${input:foods}"
+      ],
+      "envFile": "${workspaceFolder}/.env",
+      "console": "integratedTerminal"
+    },
+    {
+      "name": "Web UI: FastAPI (debug)",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "uvicorn",
+      "args": [
+        "app:app",
+        "--reload",
+        "--port",
+        "8000"
+      ],
+      "python": "${workspaceFolder}/.venv/bin/python",
+      "envFile": "${workspaceFolder}/.env",
+      "jinja": true,
+      "console": "integratedTerminal"
+    }
+  ],
+  "inputs": [
+    {
+      "id": "foods",
+      "type": "promptString",
+      "description": "A food to classify",
+      "default": "gyro"
+    }
+  ]
+}
