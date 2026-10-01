@@ -201,6 +201,20 @@ The UI has tabs (`#sandwich`, `#cult`, `#chaos`), one per Jev primitive:
 - Chaos tab: the auto-route confidence threshold is adjustable in the browser and flips the decision without calling Jev again.
 - Cult tab: weights are adjustable in the browser and recompute the index without calling Jev again.
 
+## Use it from other devices on your network
+
+```sh
+npm run build
+set -a; source .env; set +a
+.venv/bin/uvicorn app:app --host 0.0.0.0 --port 8000
+```
+
+Then open `http://<this-machine's-LAN-IP>:8000` from another laptop on the same Wi-Fi.
+In VS Code, the **Web UI: serve on LAN (0.0.0.0:8000)** launch config does the build,
+starts the server and prints the address. There's no login, so anyone who can reach
+that address can run requests on your TypeSafe API key. Keep it to a trusted network.
+Your key stays on the server and is never sent to browsers.
+
 ## Debug in VS Code
 
 Open the folder, then use **Run and Debug** and pick:
@@ -209,6 +223,7 @@ Open the folder, then use **Run and Debug** and pick:
   API with the debugger attached and opens http://127.0.0.1:8000
 - **Full stack: FastAPI + Vite (hot reload)**: runs setup, then the API and the Vite
   dev server together (the browser opens on port 5173; stopping one stops both)
+- **Web UI: serve on LAN (0.0.0.0:8000)**: same, but reachable from other devices on your network
 - **Sandwich: built-in examples** / **Sandwich: custom foods** (prompts for a food): the CLI demo
 
 Each one runs the **Setup** task first (`scripts/setup.sh`), so a fresh clone works

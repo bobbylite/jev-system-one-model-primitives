@@ -6,8 +6,14 @@
       "detail": "Create .venv, install Python + npm deps, create .env, build the UI. Safe to re-run.",
       "type": "shell",
       "command": "bash scripts/setup.sh",
-      "options": { "cwd": "${workspaceFolder}" },
-      "presentation": { "reveal": "always", "panel": "shared", "clear": true },
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "clear": true
+      },
       "problemMatcher": []
     },
     {
@@ -15,8 +21,37 @@
       "detail": "Same as above but skips the production UI build; use with the Vite dev server.",
       "type": "shell",
       "command": "bash scripts/setup.sh --no-build",
-      "options": { "cwd": "${workspaceFolder}" },
-      "presentation": { "reveal": "always", "panel": "shared", "clear": true },
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "clear": true
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Show LAN address",
+      "detail": "Print the URL other devices on your network can open.",
+      "type": "shell",
+      "command": "ip=$(ipconfig getifaddr en0 2>/dev/null || ipconfig getifaddr en1 2>/dev/null || hostname -I 2>/dev/null | cut -d' ' -f1); echo; echo \"Open from other devices on your network: http://${ip:-$(hostname)}:8000\"; echo",
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "clear": true
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Setup, build & show LAN address",
+      "type": "shell",
+      "command": "true",
+      "dependsOrder": "sequence",
+      "dependsOn": [
+        "Setup & build",
+        "Show LAN address"
+      ],
       "problemMatcher": []
     }
   ]
