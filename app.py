@@ -2,6 +2,7 @@
 
     uv run uvicorn app:app --reload
 """
+import json
 import time
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -10,7 +11,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
-from typesafe_sdk import AsyncTypeSafeClient
+from typesafe_sdk import AsyncTypeSafeClient, JSONContent
 
 import chaos
 import cult
@@ -62,11 +63,18 @@ class Policy(BaseModel):
     not_sandwich_at: float
 
 
+def _text(content: JSONContent | None) -> str | None:
+    """Question text may be a string or structured JSON; the UI shows it as text."""
+    if content is None or isinstance(content, str):
+        return content
+    return json.dumps(content)
+
+
 def _signal(qid: str, prob: float) -> Signal:
     q = sandwich.QUESTIONS[qid]
     crit = q.criteria or {}
-    return Signal(id=qid, instructions=q.instructions, true_criterion=crit.get("true"),
-                  false_criterion=crit.get("false"), probability=prob)
+    return Signal(id=qid, instructions=_text(q.instructions) or "", true_criterion=_text(crit.get("true")),
+                  false_criterion=_text(crit.get("false")), probability=prob)
 
 
 @app.get("/api/config")
@@ -129,7 +137,7 @@ def _dimension(qid: str, ans) -> Dimension:
     q = cult.QUESTIONS[qid]
     probs = {int(k): v for k, v in ans.probabilities.items()}
     levels = [Level(level=i, description=str(d), probability=probs.get(i, 0.0)) for i, d in enumerate(q.criteria)]
-    return Dimension(id=qid, instructions=q.instructions, score=ans.score, max_level=len(q.criteria) - 1,
+    return Dimension(id=qid, instructions=_text(q.instructions) or "", score=ans.score, max_level=len(q.criteria) - 1,
                      confidence=ans.confidence, levels=levels)
 
 

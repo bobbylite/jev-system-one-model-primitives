@@ -48,6 +48,46 @@ Why that is useful, and where this repo shows it:
 Typed output guarantees the *interface*, not the truth. Validate thresholds on your
 own data before trusting them.
 
+### Is Jev just another classifier?
+
+Partly. Jev's output has the same shape as a classifier's: a label or a probability
+instead of free text. The difference is in how you get to that output.
+
+**A regular classifier** is a model trained for one fixed task. You collect labeled
+examples ("spam" / "not spam"), train it, and it can only answer the question it was
+trained on, with the labels it was trained on. Changing the question, adding a label
+or changing what a label means usually means new data and retraining. It's a good
+fit when you have lots of labeled data and a stable task, and it is often cheap to run
+once built.
+
+**Jev** is a general decision model that you point at a different question on every
+request. Look at `sandwich.py`, `cult.py` and `chaos.py`: each one hands Jev some
+`state` plus questions written in plain English with their own `criteria`. There is
+no dataset, no training run and no label list baked into the model. Add a question,
+reword a criterion or swap a Choice option and the next request uses it.
+
+| | Regular classifier | Jev |
+| --- | --- | --- |
+| Question | Fixed at training time | Written in your code, per request |
+| Labels / levels | Fixed set the model was trained on | Defined by you in `criteria` |
+| To change behavior | Relabel data and retrain | Edit the question text |
+| Needs labeled data to start | Yes | No (you still want test cases to validate it) |
+| Output | A label, often with an uncalibrated score | A typed [Noul / Score / Choice](https://docs.typesafe.ai/primitives) with probabilities |
+| Several judgments per input | One model per judgment | Many questions in one parallel request |
+
+It also differs from a general LLM. An LLM generates text that you then have to
+coerce into a decision and parse. Jev
+[returns the decision directly](https://docs.typesafe.ai/introduction) and is trained
+for calibrated probabilities, so "0.8" should be right about 80% of the time (see
+the [AI primer](https://docs.typesafe.ai/introduction/machine-learning-primer)).
+
+So the honest answer is that Jev is not special because it classifies. It is special
+because it is a *programmable* classifier: the question is code you can write,
+version and test, and the answers are typed values you can combine with ordinary
+logic. A trained classifier can still win when you have lots of labeled data, a
+fixed task and tight cost or latency limits. And whatever you choose, measure the accuracy and
+calibration on your own data instead of assuming them.
+
 ### The three primitives in this repo
 
 | Primitive | Question it answers | Demo | Code owns |
