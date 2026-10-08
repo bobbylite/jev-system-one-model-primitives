@@ -3,6 +3,8 @@ import type { Env } from "./env";
 import { ErrorBody } from "./http";
 import { ApiRoutes } from "./routes/api";
 
+export { SpendLedger } from "./spend/ledger";
+
 const app = new Hono<{ Bindings: Env }>();
 
 app.use("*", async (c, next) => {

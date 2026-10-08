@@ -1,7 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import app from "../src/worker/index";
+import { PublicCopy } from "../src/worker/copy";
 import type { Env } from "../src/worker/env";
 import { JevClient } from "../src/worker/jev/client";
+import { ScriptedSpend } from "./fake-spend";
 
 const mockEnv: Env = { JEV_MOCK: "true" };
 
@@ -172,12 +174,16 @@ describe("POST endpoints", () => {
   });
 });
 
+function liveEnv(spend = new ScriptedSpend()): Env {
+  return { TYPESAFE_API_KEY: "secret", JEV_DAILY_BUDGET_USD: "2", SPEND: spend.binding() };
+}
+
 describe("Jev failures", () => {
-  it("returns 502 with the Python message prefix when the key is missing", async () => {
+  it("returns 503 with the switched-off message when the key is missing", async () => {
     const response = await post("/api/classify", { food: "BLT" }, {});
-    expect(response.status).toBe(502);
+    expect(response.status).toBe(503);
     const body = await response.json() as { detail: string };
-    expect(body.detail).toBe("Jev request failed: TYPESAFE_API_KEY is not set");
+    expect(body.detail).toBe(PublicCopy.switchedOff);
     expect(response.headers.get("x-jev-source")).toBeNull();
   });
 
@@ -189,7 +195,7 @@ describe("Jev failures", () => {
     expect(fetchImpl).not.toHaveBeenCalled();
 
     fetchImpl.mockRejectedValue(new Error("network down"));
-    const failed = await post("/api/classify", { food: "BLT" }, { TYPESAFE_API_KEY: "secret" });
+    const failed = await post("/api/classify", { food: "BLT" }, liveEnv());
     expect(failed.status).toBe(502);
     const body = await failed.json() as { detail: string };
     expect(body.detail).toBe("Jev request failed: network down");
@@ -201,7 +207,7 @@ describe("Jev failures", () => {
       answers: { bread: { type: "choice", choice: "no", probabilities: {}, confidence: 0.2 } },
       usage: { input_tokens: 1, output_tokens: 1 },
     }), { status: 200, headers: { "content-type": "application/json" } })));
-    const response = await post("/api/classify", { food: "BLT" }, { TYPESAFE_API_KEY: "secret" });
+    const response = await post("/api/classify", { food: "BLT" }, liveEnv());
     expect(response.status).toBe(502);
     const body = await response.json() as { detail: string };
     expect(body.detail).toMatch(/^Jev request failed: Missing noul answer/);

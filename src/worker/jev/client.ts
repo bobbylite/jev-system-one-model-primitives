@@ -1,31 +1,13 @@
-import type { Env } from "../env";
-import { LocalJevMock } from "./mock";
 import type { JevQuestion, SystemOneResult } from "./types";
 
 /**
  * Direct call to the TypeSafe HTTP API, same shape as estimator-demo.
  * The official JS SDK would retry and pull extra code into a 10 ms Worker.
+ * Mocking and the missing-key response live in the route, not here.
  */
 export class JevClient {
   static readonly endpoint = "https://api.typesafe.ai/v1/systemone";
   static readonly model = "jev-latest";
-
-  static async evaluate(input: {
-    env: Env;
-    fetchImpl: typeof fetch;
-    state: unknown;
-    questions: Record<string, JevQuestion>;
-  }): Promise<SystemOneResult> {
-    if (input.env.JEV_MOCK === "true") return LocalJevMock.respond(input.state, input.questions);
-    const apiKey = input.env.TYPESAFE_API_KEY?.trim();
-    if (!apiKey) throw new Error("TYPESAFE_API_KEY is not set");
-    return JevClient.systemOne({
-      fetchImpl: input.fetchImpl,
-      apiKey,
-      state: input.state,
-      questions: input.questions,
-    });
-  }
 
   static async systemOne(input: {
     fetchImpl: typeof fetch;

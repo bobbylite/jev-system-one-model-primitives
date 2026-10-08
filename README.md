@@ -7,6 +7,35 @@ code owns the policy that turns them into decisions.
 
 Question text, weights, and the policy that turns Jev's answers into a verdict live in `src/worker/policy/`. A web UI covering all three is served by the same Worker.
 
+## Live demo
+
+https://jev-primitives.bobbylite.workers.dev
+
+The site is one free-plan Worker named `jev-primitives`. The first deploy ships **without** `TYPESAFE_API_KEY`, on purpose, until the PingOne gate lands. While that secret is unset, the three Jev POST routes do not call TypeSafe. They return **503** with:
+
+```json
+{"detail":"Jev is switched off until pilot login is live"}
+```
+
+The Sandwich, Cult, and Chaos tabs show that sentence in the error box. `GET /api/config`, `GET /api/cult/config`, `GET /api/chaos/config`, and the page itself keep working.
+
+Pushing `main` (or running the Deploy workflow by hand) ships it. The workflow is `.github/workflows/deploy.yml`: a verify job (`npm ci`, typecheck, test, build) and then a deploy job. Deploy fails with the missing secret **names** if either of these repository secrets is absent:
+
+- `CLOUDFLARE_API_TOKEN`
+- `CLOUDFLARE_ACCOUNT_ID`
+
+`TYPESAFE_API_KEY` is a Worker secret, set once, never committed and never a var in `wrangler.jsonc`:
+
+```sh
+npx wrangler secret put TYPESAFE_API_KEY --name jev-primitives
+```
+
+Until that command has been run, the live site stays on the 503 above.
+
+Jev calls share a hard **$2 per UTC day** budget (`JEV_DAILY_BUDGET_USD`, default `"2"`, reset at midnight UTC). The counter is a SQLite Durable Object (`SpendLedger`). `wrangler deploy` applies the migration in `wrangler.jsonc`, so the first Actions deploy does not need a pre-created KV namespace or D1 database id. A call under the cap reserves the rest of the day's budget first; the real token cost is written after Jev returns. If the counter cannot be read or written, the Worker refuses the call with 503 and does not reach Jev. `JEV_IP_CALLS_PER_HOUR` (default `30`, `0` to disable) is a modest per-IP limit on the same object. Cost is estimated the same way as estimator-demo: $15 / 1M input tokens and $60 / 1M output tokens, which sits high on purpose so the cap trips before real spend does.
+
+`JEV_MOCK=true` returns canned answers under `wrangler dev` only. It is ignored on the edge, where Cloudflare sets `cf-ray` and `request.cf` before the Worker runs, so a production var of the same name cannot turn the mock on.
+
 ## Why TypeSafe and Jev are powerful
 
 Most "AI features" today are a prompt, a text reply, and a parser that hopes the reply
@@ -145,17 +174,18 @@ bash scripts/setup.sh    # npm deps, .dev.vars from .dev.vars.example, UI build
 
 Then put your key from https://console.typesafe.ai/ in `.dev.vars` as `TYPESAFE_API_KEY`.
 That file is gitignored. Wrangler reads it for local dev. The script warns if the key
-isn't set.
+isn't set. With the key empty and `JEV_MOCK` unset, local POSTs return the same 503
+as production: `Jev is switched off until pilot login is live`.
 
-On a deployed Worker the same name is a secret, not a var in `wrangler.jsonc`:
+On a deployed Worker the key is a secret, not a var in `wrangler.jsonc`:
 
 ```sh
-npx wrangler secret put TYPESAFE_API_KEY
+npx wrangler secret put TYPESAFE_API_KEY --name jev-primitives
 ```
 
 Set `JEV_MOCK=true` in `.dev.vars` when you want the UI without a key. That returns
-canned answers labeled `local-mock` and does not call TypeSafe. Leave it unset once
-the key is real, and do not set it in production.
+canned answers labeled `local-mock` and does not call TypeSafe. It only applies to
+local `wrangler dev` requests. Leave it unset once the key is real.
 
 ## Run
 

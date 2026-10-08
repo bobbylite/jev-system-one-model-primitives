@@ -1,4 +1,5 @@
 import type { Context, Hono } from "hono";
+import { PublicCopy } from "../copy";
 import type { Env } from "../env";
 import { HttpError, JsonRequest } from "../http";
 import { JevClient } from "../jev/client";
@@ -7,6 +8,9 @@ import type { JevAnswer, JevQuestion } from "../jev/types";
 import { Chaos } from "../policy/chaos";
 import { Cult } from "../policy/cult";
 import { Sandwich } from "../policy/sandwich";
+import { Runtime } from "../runtime";
+import { SpendClient } from "../spend/client";
+import { SpendPolicy } from "../spend/policy";
 
 type App = Hono<{ Bindings: Env }>;
 type AppContext = Context<{ Bindings: Env }>;
@@ -30,7 +34,6 @@ export class ApiRoutes {
   static async classify(c: AppContext): Promise<Response> {
     const body = await JsonRequest.object(c.req.raw);
     const food = JsonRequest.boundedString(body, "food", 80).trim();
-    ApiRoutes.markMock(c);
     return ApiRoutes.ask(c, { food }, Sandwich.questions, (answers, latencyMs) => {
       const probabilities = Sandwich.probabilities(answers);
       return {
@@ -45,19 +48,13 @@ export class ApiRoutes {
   static async cultScore(c: AppContext): Promise<Response> {
     const body = await JsonRequest.object(c.req.raw);
     const group = JsonRequest.boundedString(body, "group", 80).trim();
-    ApiRoutes.markMock(c);
     return ApiRoutes.ask(c, { group }, Cult.questions, (answers, latencyMs) => Cult.result(group, answers, latencyMs));
   }
 
   static async chaosRoute(c: AppContext): Promise<Response> {
     const body = await JsonRequest.object(c.req.raw);
     const message = JsonRequest.boundedString(body, "message", 1000).trim();
-    ApiRoutes.markMock(c);
     return ApiRoutes.ask(c, { message }, Chaos.questions, (answers, latencyMs) => Chaos.result(message, answers, latencyMs));
-  }
-
-  private static markMock(c: AppContext): void {
-    if (c.env.JEV_MOCK === "true") c.header("x-jev-source", LocalJevMock.source);
   }
 
   private static async ask<T>(
@@ -66,15 +63,43 @@ export class ApiRoutes {
     questions: Record<string, JevQuestion>,
     present: (answers: Record<string, JevAnswer>, latencyMs: number) => T,
   ): Promise<Response> {
-    const start = Date.now();
+    if (Runtime.useMock(c.env, c.req.raw)) {
+      c.header("x-jev-source", LocalJevMock.source);
+      const started = Date.now();
+      return c.json(present(LocalJevMock.respond(state, questions).answers, Date.now() - started));
+    }
+
+    const apiKey = c.env.TYPESAFE_API_KEY?.trim() ?? "";
+    if (!apiKey) throw new HttpError(503, PublicCopy.switchedOff);
+
+    const budgetUsd = SpendPolicy.budgetUsd(c.env.JEV_DAILY_BUDGET_USD);
+    const ipLimit = SpendPolicy.ipLimit(c.env.JEV_IP_CALLS_PER_HOUR);
+    if (budgetUsd === null || ipLimit === null) throw new HttpError(503, PublicCopy.unavailable);
+
+    await SpendClient.gate(c.env, {
+      budgetUsd,
+      ipLimit,
+      ip: SpendPolicy.clientIp(c.req.header("cf-connecting-ip")),
+      now: Date.now(),
+    });
+
+    const started = Date.now();
+    let result;
     try {
-      const result = await JevClient.evaluate({
-        env: c.env,
-        fetchImpl: fetch,
-        state,
-        questions,
-      });
-      return c.json(present(result.answers, Date.now() - start));
+      result = await JevClient.systemOne({ fetchImpl: fetch, apiKey, state, questions });
+    } catch (error) {
+      await SpendClient.release(c.env);
+      const message = error instanceof Error ? error.message : String(error);
+      throw new HttpError(502, `Jev request failed: ${message}`);
+    }
+
+    await SpendClient.record(c.env, {
+      usd: SpendPolicy.estimatedUsd(result.usage.input_tokens, result.usage.output_tokens),
+      now: Date.now(),
+    });
+
+    try {
+      return c.json(present(result.answers, Date.now() - started));
     } catch (error) {
       if (error instanceof HttpError) throw error;
       const message = error instanceof Error ? error.message : String(error);

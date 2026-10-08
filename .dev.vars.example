@@ -1,8 +1,14 @@
 # Copy to .dev.vars for `wrangler dev`. Never commit .dev.vars.
-# Production key (not a var in wrangler.jsonc):
-#   npx wrangler secret put TYPESAFE_API_KEY
+# Production secret (not a var in wrangler.jsonc):
+#   npx wrangler secret put TYPESAFE_API_KEY --name jev-primitives
+# Until that secret exists, Jev POSTs return 503:
+#   {"detail":"Jev is switched off until pilot login is live"}
 TYPESAFE_API_KEY=
 
 # Local only. "true" returns canned Jev answers and does not call the network.
-# Leave this unset once TYPESAFE_API_KEY is a real key. Never set it in production.
+# Ignored on the edge even if the var is set. Leave unset once the key is real.
 # JEV_MOCK=true
+
+# Optional local overrides. Defaults live in wrangler.jsonc ($2/day, 30/hour/IP).
+# JEV_DAILY_BUDGET_USD=2
+# JEV_IP_CALLS_PER_HOUR=30

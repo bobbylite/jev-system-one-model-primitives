@@ -24,7 +24,7 @@ if grep -qE '^JEV_MOCK=true' .dev.vars; then
 elif grep -qE '^TYPESAFE_API_KEY=.+' .dev.vars && ! grep -q 'your-key-here' .dev.vars; then
   :
 else
-  echo "warning: TYPESAFE_API_KEY in .dev.vars is not set; Jev requests will fail until it is. Set JEV_MOCK=true to use canned answers locally." >&2
+  echo "warning: TYPESAFE_API_KEY in .dev.vars is not set. Jev POSTs return 503 (switched off) until it is. Set JEV_MOCK=true for canned answers under wrangler dev." >&2
 fi
 
 npm install --no-audit --no-fund

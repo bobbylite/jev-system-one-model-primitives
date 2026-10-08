@@ -11,8 +11,9 @@
     "dev": "vite",
     "build": "tsc --noEmit && tsc -p tsconfig.worker.json --noEmit && vite build",
     "typecheck": "tsc --noEmit && tsc -p tsconfig.worker.json --noEmit",
-    "test": "vitest run",
+    "test": "NODE_OPTIONS='--experimental-sqlite' vitest run",
     "worker": "wrangler dev",
+    "deploy": "npm run build && wrangler deploy",
     "size": "wrangler deploy --dry-run",
     "preview": "vite preview"
   },
