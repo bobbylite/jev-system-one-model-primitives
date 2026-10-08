@@ -1,0 +1,8 @@
+# Copy to .dev.vars for `wrangler dev`. Never commit .dev.vars.
+# Production key (not a var in wrangler.jsonc):
+#   npx wrangler secret put TYPESAFE_API_KEY
+TYPESAFE_API_KEY=
+
+# Local only. "true" returns canned Jev answers and does not call the network.
+# Leave this unset once TYPESAFE_API_KEY is a real key. Never set it in production.
+# JEV_MOCK=true

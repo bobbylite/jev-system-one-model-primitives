@@ -111,7 +111,7 @@ function Verdict({ r, policy: P }: { r: SandwichVerdict; policy: SandwichConfig[
         ))}
       </div>
 
-      <SectionHead title="How code decided" note="Policy lives in sandwich.py" wait={0.5} />
+      <SectionHead title="How code decided" note="Policy lives in the Worker" wait={0.5} />
       <div className="panel math reveal" style={delay(0.55)}>
         <div className="row">
           <div className="name">Structural fit<small>bread × filling × handheld × pieces</small></div>

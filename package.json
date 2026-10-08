@@ -6,24 +6,31 @@
   "engines": {
     "node": ">=22.12.0"
   },
-  "description": "React + TypeScript front end for the Jev System One demos. FastAPI serves the build.",
+  "description": "Jev System One demos: a Hono Worker plus the React UI it serves.",
   "scripts": {
     "dev": "vite",
-    "build": "tsc --noEmit && vite build",
-    "typecheck": "tsc --noEmit",
+    "build": "tsc --noEmit && tsc -p tsconfig.worker.json --noEmit && vite build",
+    "typecheck": "tsc --noEmit && tsc -p tsconfig.worker.json --noEmit",
+    "test": "vitest run",
+    "worker": "wrangler dev",
+    "size": "wrangler deploy --dry-run",
     "preview": "vite preview"
   },
   "dependencies": {
+    "hono": "^4.13.13",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
     "tldraw": "^5.5.0"
   },
   "devDependencies": {
+    "@cloudflare/workers-types": "^5.20261008.1",
     "@types/node": "^26.6.3",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.1.1",
     "typescript": "^7.0.2",
-    "vite": "^8.3.1"
+    "vite": "^8.3.1",
+    "vitest": "^3.2.7",
+    "wrangler": "^4.149.0"
   }
 }

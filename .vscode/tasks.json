@@ -3,7 +3,7 @@
   "tasks": [
     {
       "label": "Setup & build",
-      "detail": "Create .venv, install Python + npm deps, create .env, build the UI. Safe to re-run.",
+      "detail": "Install npm deps, create .dev.vars, build the UI. Safe to re-run.",
       "type": "shell",
       "command": "bash scripts/setup.sh",
       "options": {
@@ -35,7 +35,7 @@
       "label": "Show LAN address",
       "detail": "Print the URL other devices on your network can open.",
       "type": "shell",
-      "command": "ip=$(ipconfig getifaddr en0 2>/dev/null || ipconfig getifaddr en1 2>/dev/null || hostname -I 2>/dev/null | cut -d' ' -f1); echo; echo \"Open from other devices on your network: http://${ip:-$(hostname)}:8000\"; echo",
+      "command": "ip=$(ipconfig getifaddr en0 2>/dev/null || ipconfig getifaddr en1 2>/dev/null || hostname -I 2>/dev/null | cut -d' ' -f1); echo; echo \"Open from other devices on your network: http://${ip:-$(hostname)}:8787\"; echo",
       "presentation": {
         "reveal": "always",
         "panel": "dedicated",
@@ -44,15 +44,29 @@
       "problemMatcher": []
     },
     {
-      "label": "Setup, build & show LAN address",
+      "label": "Worker: wrangler dev",
+      "detail": "Serve the API and the built UI. Requires npm run build first.",
       "type": "shell",
-      "command": "true",
-      "dependsOrder": "sequence",
-      "dependsOn": [
-        "Setup & build",
-        "Show LAN address"
+      "command": "npx wrangler dev",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "isBackground": true,
+      "problemMatcher": [
+        {
+          "owner": "wrangler",
+          "pattern": { "regexp": "^$" },
+          "background": {
+            "activeOnStart": true,
+            "beginsPattern": ".",
+            "endsPattern": "Ready on"
+          }
+        }
       ],
-      "problemMatcher": []
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated"
+      }
     }
   ]
 }

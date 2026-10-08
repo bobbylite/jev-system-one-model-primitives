@@ -2,106 +2,20 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "Sandwich: built-in examples",
-      "type": "debugpy",
-      "request": "launch",
-      "program": "${workspaceFolder}/sandwich.py",
-      "python": "${workspaceFolder}/.venv/bin/python",
-      "envFile": "${workspaceFolder}/.env",
-      "preLaunchTask": "Setup (no UI build)",
-      "console": "integratedTerminal"
-    },
-    {
-      "name": "Sandwich: custom foods",
-      "type": "debugpy",
-      "request": "launch",
-      "program": "${workspaceFolder}/sandwich.py",
-      "python": "${workspaceFolder}/.venv/bin/python",
-      "args": [
-        "${input:foods}"
-      ],
-      "envFile": "${workspaceFolder}/.env",
-      "preLaunchTask": "Setup (no UI build)",
-      "console": "integratedTerminal"
-    },
-    {
-      "name": "Web UI: build + FastAPI (debug)",
-      "type": "debugpy",
-      "request": "launch",
-      "module": "uvicorn",
-      "args": [
-        "app:app",
-        "--reload",
-        "--port",
-        "8000"
-      ],
-      "python": "${workspaceFolder}/.venv/bin/python",
-      "envFile": "${workspaceFolder}/.env",
-      "preLaunchTask": "Setup & build",
-      "console": "integratedTerminal",
-      "serverReadyAction": {
-        "pattern": "Uvicorn running on (https?://\\S+)",
-        "uriFormat": "%s",
-        "action": "openExternally"
-      }
-    },
-    {
-      "name": "Web UI: serve on LAN (0.0.0.0:8000)",
-      "type": "debugpy",
-      "request": "launch",
-      "module": "uvicorn",
-      "args": [
-        "app:app",
-        "--host",
-        "0.0.0.0",
-        "--port",
-        "8000"
-      ],
-      "python": "${workspaceFolder}/.venv/bin/python",
-      "envFile": "${workspaceFolder}/.env",
-      "preLaunchTask": "Setup, build & show LAN address",
-      "console": "integratedTerminal"
-    },
-    {
-      "name": "Web UI: FastAPI API only (part of Full stack)",
-      "type": "debugpy",
-      "request": "launch",
-      "module": "uvicorn",
-      "args": [
-        "app:app",
-        "--reload",
-        "--port",
-        "8000"
-      ],
-      "python": "${workspaceFolder}/.venv/bin/python",
-      "envFile": "${workspaceFolder}/.env",
-      "console": "integratedTerminal"
-    },
-    {
       "name": "Web UI: Vite dev server",
       "type": "node-terminal",
       "request": "launch",
       "command": "npm run dev -- --open",
-      "cwd": "${workspaceFolder}"
-    }
-  ],
-  "compounds": [
+      "cwd": "${workspaceFolder}",
+      "preLaunchTask": "Setup (no UI build)"
+    },
     {
-      "name": "Full stack: FastAPI + Vite (hot reload)",
-      "configurations": [
-        "Web UI: FastAPI API only (part of Full stack)",
-        "Web UI: Vite dev server"
-      ],
-      "preLaunchTask": "Setup (no UI build)",
-      "stopAll": true
-    }
-  ],
-  "inputs": [
-    {
-      "id": "foods",
-      "type": "promptString",
-      "description": "A food to classify",
-      "default": "gyro"
+      "name": "Worker: wrangler dev",
+      "type": "node-terminal",
+      "request": "launch",
+      "command": "npx wrangler dev",
+      "cwd": "${workspaceFolder}",
+      "preLaunchTask": "Setup & build"
     }
   ]
 }

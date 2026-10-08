@@ -2,8 +2,13 @@
 __pycache__/
 *.pyc
 .env
+.env.*
+!.env.example
+.dev.vars
+.wrangler
 .DS_Store
 node_modules/
 web/dist/
 *.tsbuildinfo
 *.egg-info/
+coverage
