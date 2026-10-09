@@ -1,4 +1,5 @@
 import { lazy, Suspense, useLayoutEffect, useRef, useState, type ComponentType } from "react";
+import { Gate, useShell } from "./auth/Gate";
 import { useHashTab } from "./hooks";
 import { Chaos } from "./views/Chaos";
 import { Cult } from "./views/Cult";
@@ -17,6 +18,15 @@ type TabId = (typeof TABS)[number]["id"];
 const IDS = TABS.map((t) => t.id) as readonly TabId[];
 
 export function App() {
+  return (
+    <Gate>
+      <Lab />
+    </Gate>
+  );
+}
+
+function Lab() {
+  const shell = useShell();
   const [tab, setTab] = useHashTab(IDS);
   const [visited, setVisited] = useState<ReadonlySet<TabId>>(() => new Set([tab]));
   const [boardOpen, setBoardOpen] = useState(false);
@@ -29,6 +39,8 @@ export function App() {
         <div className="brand"><span className="dot" />Jev · Lab</div>
         <div className="header-right">
           <Tabs active={tab} onPick={setTab} />
+          <span className="who">{shell.name}</span>
+          <button type="button" className="text-btn sign-out" onClick={shell.signOut}>Sign out</button>
           <button className="icon-btn" onClick={() => setBoardOpen(true)} aria-label="Open whiteboard" title="Whiteboard">
             <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
               <rect x="3" y="4" width="18" height="12" rx="2" />

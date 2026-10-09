@@ -3,12 +3,26 @@
   "name": "jev-primitives",
   "compatibility_date": "2026-10-08",
   "main": "src/worker/index.ts",
-  // Free plan budget. Do not raise this: 10 ms CPU per request is the cap.
-  "limits": { "cpu_ms": 10 },
   "vars": {
     "JEV_DAILY_BUDGET_USD": "2",
-    "JEV_IP_CALLS_PER_HOUR": "30"
+    "JEV_IP_CALLS_PER_HOUR": "30",
+    "PINGONE_MOCK": "false",
+    "PINGONE_ENV_ID": "c74a4945-1364-4966-9a68-abeaa3e7b767",
+    "PINGONE_CLIENT_ID": "55833d59-268f-4355-a46c-030fdf10c206",
+    "PINGONE_AUTH_HOST": "https://auth.pingone.com",
+    "PINGONE_SCOPES": "openid profile email offline_access",
+    "AI_PILOT_GATE_ENABLED": "true",
+    "AI_PILOT_GROUP": "jev-pilot-program",
+    "AI_PILOT_GROUPS_CLAIM": "groups",
+    "AI_USER_CALLS_PER_HOUR": "30",
+    "AI_USER_TOKENS_PER_DAY": "100000"
   },
+  "kv_namespaces": [
+    {
+      "binding": "SESSIONS",
+      "id": "4961d23b1e7a4703b6b67e6ce3a713db"
+    }
+  ],
   // SQLite Durable Object. No pre-created id: `wrangler deploy` applies the migration.
   "durable_objects": {
     "bindings": [

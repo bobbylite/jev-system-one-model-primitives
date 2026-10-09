@@ -1,3 +1,5 @@
+import { getCsrf } from "./auth/csrf";
+
 /** Wire types. These mirror the JSON the Worker returns. */
 
 export interface Signal {
@@ -89,16 +91,36 @@ export interface ChaosResult {
   latency_ms: number;
 }
 
+export class ApiError extends Error {
+  readonly status: number;
+  readonly kind?: string;
+
+  constructor(status: number, message: string, kind?: string) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+    if (kind !== undefined) this.kind = kind;
+  }
+}
+
 export async function api<T>(path: string, body?: unknown, signal?: AbortSignal): Promise<T> {
+  const headers = new Headers();
+  if (body !== undefined) {
+    headers.set("Content-Type", "application/json");
+    const csrf = getCsrf();
+    if (csrf) headers.set("X-CSRF-Token", csrf);
+  }
   const res = await fetch(`/api${path}`, {
-    ...(body === undefined
-      ? {}
-      : { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }),
+    credentials: "same-origin",
+    headers,
+    ...(body === undefined ? {} : { method: "POST", body: JSON.stringify(body) }),
     ...(signal ? { signal } : {}),
   });
   if (!res.ok) {
-    const detail = await res.json().then((j: { detail?: unknown }) => j.detail, () => undefined);
-    throw new Error(typeof detail === "string" ? detail : res.statusText);
+    const payload = await res.json().then((value: { detail?: unknown; error?: unknown; kind?: unknown }) => value, () => undefined);
+    const detail = typeof payload?.detail === "string" ? payload.detail : typeof payload?.error === "string" ? payload.error : res.statusText;
+    const kind = typeof payload?.kind === "string" ? payload.kind : undefined;
+    throw new ApiError(res.status, detail, kind);
   }
   return res.json() as Promise<T>;
 }

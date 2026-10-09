@@ -11,30 +11,106 @@ Question text, weights, and the policy that turns Jev's answers into a verdict l
 
 https://jev-primitives.bobbylite.workers.dev
 
-The site is one free-plan Worker named `jev-primitives`. The first deploy ships **without** `TYPESAFE_API_KEY`, on purpose, until the PingOne gate lands. While that secret is unset, the three Jev POST routes do not call TypeSafe. They return **503** with:
+The site is one free-plan Worker named `jev-primitives`. Visitors sign in with the same PingOne application the estimator uses (`pi.flow`, confidential client, server-side only). `POST /api/classify`, `POST /api/cult/score`, and `POST /api/chaos/route` then run this sequence and stop at the first failure:
 
-```json
-{"detail":"Jev is switched off until pilot login is live"}
-```
+1. Signed-in session, or **401**.
+2. Membership in `jev-pilot-program` when `AI_PILOT_GATE_ENABLED` is `true`, or **403** `pilot_required`.
+3. The **$2 per UTC day** spend cap.
+4. The per-user call limit and the per-IP limit.
+5. The Jev call.
 
-The Sandwich, Cult, and Chaos tabs show that sentence in the error box. `GET /api/config`, `GET /api/cult/config`, `GET /api/chaos/config`, and the page itself keep working.
+A 401 or 403 does not touch the spend Durable Object or the rate counters. `GET /api/config`, `GET /api/cult/config`, and `GET /api/chaos/config` stay public. The page itself is the login screen until a member is signed in.
+
+`wrangler.jsonc` does **not** set `limits.cpu_ms`. Cloudflare rejects that key on the free plan (error 100328) and the deploy workflow fails. Leave it unset.
 
 Pushing `main` (or running the Deploy workflow by hand) ships it. The workflow is `.github/workflows/deploy.yml`: a verify job (`npm ci`, typecheck, test, build) and then a deploy job. Deploy fails with the missing secret **names** if either of these repository secrets is absent:
 
 - `CLOUDFLARE_API_TOKEN`
 - `CLOUDFLARE_ACCOUNT_ID`
 
-`TYPESAFE_API_KEY` is a Worker secret, set once, never committed and never a var in `wrangler.jsonc`:
+`TYPESAFE_API_KEY` and `PINGONE_CLIENT_SECRET` are Worker secrets, set once, never committed and never vars in `wrangler.jsonc`:
 
 ```sh
 npx wrangler secret put TYPESAFE_API_KEY --name jev-primitives
+npx wrangler secret put PINGONE_CLIENT_SECRET --name jev-primitives
 ```
 
-Until that command has been run, the live site stays on the 503 above.
+While the TypeSafe key is unset, a signed-in member still gets **503**:
 
-Jev calls share a hard **$2 per UTC day** budget (`JEV_DAILY_BUDGET_USD`, default `"2"`, reset at midnight UTC). The counter is a SQLite Durable Object (`SpendLedger`). `wrangler deploy` applies the migration in `wrangler.jsonc`, so the first Actions deploy does not need a pre-created KV namespace or D1 database id. A call under the cap reserves the rest of the day's budget first; the real token cost is written after Jev returns. If the counter cannot be read or written, the Worker refuses the call with 503 and does not reach Jev. `JEV_IP_CALLS_PER_HOUR` (default `30`, `0` to disable) is a modest per-IP limit on the same object. Cost is estimated the same way as estimator-demo: $15 / 1M input tokens and $60 / 1M output tokens, which sits high on purpose so the cap trips before real spend does.
+```json
+{"detail":"Jev is switched off until an API key is set."}
+```
 
-`JEV_MOCK=true` returns canned answers under `wrangler dev` only. It is ignored on the edge, where Cloudflare sets `cf-ray` and `request.cf` before the Worker runs, so a production var of the same name cannot turn the mock on.
+Jev calls share a hard **$2 per UTC day** budget (`JEV_DAILY_BUDGET_USD`, default `"2"`, reset at midnight UTC). The counter is a SQLite Durable Object (`SpendLedger`). `wrangler deploy` applies the migration in `wrangler.jsonc`. A call under the cap reserves the rest of the day's budget first; the real token cost is written after Jev returns. If the counter cannot be read or written, the Worker refuses the call with 503 and does not reach Jev. The ledger checks the cap before it increments the per-IP counter. `JEV_IP_CALLS_PER_HOUR` (default `30`, `0` to disable) is that per-IP limit. After the cap allows the call, `AI_USER_CALLS_PER_HOUR` (default `30`) and `AI_USER_TOKENS_PER_DAY` (default `100000`) limit that signed-in user. Those counters live in the `SESSIONS` KV namespace. Cost is estimated the same way as estimator-demo: $15 / 1M input tokens and $60 / 1M output tokens, which sits high on purpose so the cap trips before real spend does.
+
+`JEV_MOCK=true` and `PINGONE_MOCK=true` apply only to local `wrangler dev`. Both are ignored on the edge, where Cloudflare sets `cf-ray` before the Worker runs, so a production var of either name cannot turn a mock on. `request.cf` is not used for this check: wrangler dev fills it too. `wrangler.jsonc` sets `PINGONE_MOCK` to `"false"`.
+
+## Sign in
+
+The browser never redirects to a PingOne-hosted page and never sees an access token, refresh token, ID token, or client secret. The Worker is a confidential-client backend-for-frontend. It runs PingOne’s redirectionless `pi.flow` (`response_mode=pi.flow`), keeps the PingOne `ST` cookie and the app session in KV, and sets an httpOnly `meridian_session` cookie (`SameSite=Lax`, `Secure` on https). State-changing requests send `X-CSRF-Token`. A browser `Origin` must match this app.
+
+Scopes are `openid profile email offline_access`, the same string the estimator sends. Authorize includes `code_challenge_method=S256`. The token request uses `Authorization: Basic` with the client secret and sends `code_verifier`. `redirect_uri` is omitted unless `PINGONE_REDIRECT_URI` is set, and then the **same** value is sent on authorize and on the token POST.
+
+Sessions last 12 hours. When a refresh token is present and the groups check is older than five minutes, the Worker refreshes and re-reads the ID token, and fails closed if that refresh does not return an ID token. When PingOne did not issue a refresh token, the sign-in membership stamp is trusted until `accessExpiresAt`, then the call returns **401** `reauth_required` (`Sign in again to keep using Jev.`) and the page shows **Sign in again**. The Worker logs `pingone.refresh_token.missing` with no token contents. A failed PingOne step logs `pingone.auth.failed` with PingOne’s id, code, message, details, and correlation id. Passwords, cookies, and tokens are not in that line.
+
+Non-members see **You’re not in the Jev pilot.** The API returns **403** with `kind: "pilot_required"` and `detail: "You're not in the Jev pilot."`
+
+Plain vars in `wrangler.jsonc` (public ids, safe to commit):
+
+| Var | Value |
+| --- | --- |
+| `PINGONE_ENV_ID` | `c74a4945-1364-4966-9a68-abeaa3e7b767` |
+| `PINGONE_CLIENT_ID` | `55833d59-268f-4355-a46c-030fdf10c206` |
+| `PINGONE_AUTH_HOST` | `https://auth.pingone.com` (North America) |
+| `PINGONE_SCOPES` | `openid profile email offline_access` |
+| `PINGONE_MOCK` | `false` |
+| `AI_PILOT_GATE_ENABLED` | `true` |
+| `AI_PILOT_GROUP` | `jev-pilot-program` |
+| `AI_PILOT_GROUPS_CLAIM` | `groups` |
+| `AI_USER_CALLS_PER_HOUR` | `30` |
+| `AI_USER_TOKENS_PER_DAY` | `100000` |
+| `JEV_DAILY_BUDGET_USD` | `2` |
+| `JEV_IP_CALLS_PER_HOUR` | `30` |
+
+KV binding `SESSIONS`, id `4961d23b1e7a4703b6b67e6ce3a713db`. Do not commit `PINGONE_CLIENT_SECRET` or `TYPESAFE_API_KEY`.
+
+`AI_PILOT_GATE_ENABLED` is the string `true` or it is off. Any other value lets every signed-in user call Jev, still inside the spend cap and the rate limits. Unsigned visitors still get the login page.
+
+Local mock (`PINGONE_MOCK=true` in `.dev.vars`, and only on a request without `cf-ray`):
+
+| | |
+| --- | --- |
+| Pilot member | `robert@meridian.test` / `stake-demo` |
+| MFA | same username, password `mfa-demo`, then code `482913` |
+| Outside the group | create `ada@meridian.test` / `Stake-1847`, then code `18472639` |
+
+The login card labels this **Fake PingOne**. It does not call the tenant.
+
+### What Robert changes in PingOne
+
+The client id above is the estimator’s existing OIDC **Web** application. Do not create a second application. Do these by hand on that app, in the North America environment `c74a4945-1364-4966-9a68-abeaa3e7b767`.
+
+**Redirect URI.** `pi.flow` does not send the browser anywhere, and this Worker does not send `redirect_uri` until `PINGONE_REDIRECT_URI` is set. PingOne still requires `redirect_uri` when the application already has one or more redirect URIs registered (the estimator’s are). If authorize fails with `INVALID_VALUE` and target `redirect_uri`, add this URL on the application’s **Redirect URIs** and set the Worker var to the same characters, including the path:
+
+`https://jev-primitives.bobbylite.workers.dev/oauth/callback`
+
+```sh
+npx wrangler secret put PINGONE_REDIRECT_URI --name jev-primitives
+```
+
+Paste that URL when prompted. It is not a secret, but a secret slot is a fine place to set it without a code change. A var in the dashboard named `PINGONE_REDIRECT_URI` is the same thing. The Worker then sends that exact value on `GET /as/authorize` and again on `POST /as/token`. A mismatch fails the token exchange. Leave the var unset only if authorize succeeds without `redirect_uri`.
+
+**Allowed origins / CORS.** Not required for this login. The browser never calls `auth.pingone.com`. The Worker does. Do not add the Jev origin to PingOne CORS unless a future browser SDK starts calling PingOne directly. There is no CORS change to make for `pi.flow`.
+
+**Group.** Directory → Groups → create `jev-pilot-program` if it is not there. Open the group → Users → Add Individually → add yourself. The gate compares the ID-token `groups` claim to that name, case-insensitive. The estimator’s attribute mapping (`groups` → Group Names, on the ID token) is reused because this is the same application. If that mapping is missing, Applications → the app → Attribute Mappings → Add → attribute name `groups`, mapping **Group Names**, claim on the ID token, save.
+
+**Refresh token.** The application needs the Refresh Token grant, and `offline_access` on the OpenID resource grant when that grant exists. With a refresh token, removing someone from `jev-pilot-program` takes effect on the next Jev call after the five-minute check. Without a refresh token, membership stays as it was at sign-in until the access token expires, then the user must sign in again.
+
+**Registration (optional).** The sign-up form is on the login page. It works only if the sign-on policy attached to this application includes the Registration action, a population, and email verification. If `user.register` is missing, the page says registration is off. No new redirect URI is involved. The browser stays on Jev.
+
+**Sign-on policy.** Username and password, plus MFA if you want the OTP step. Password reset and FIDO are reported as an unsupported step and are not collected here.
+
+After those console changes, the next request uses them. No redeploy is required for a new group member. A new `PINGONE_REDIRECT_URI` value takes effect when the Worker var or secret is saved.
 
 ## Why TypeSafe and Jev are powerful
 
@@ -174,8 +250,9 @@ bash scripts/setup.sh    # npm deps, .dev.vars from .dev.vars.example, UI build
 
 Then put your key from https://console.typesafe.ai/ in `.dev.vars` as `TYPESAFE_API_KEY`.
 That file is gitignored. Wrangler reads it for local dev. The script warns if the key
-isn't set. With the key empty and `JEV_MOCK` unset, local POSTs return the same 503
-as production: `Jev is switched off until pilot login is live`.
+isn't set. `.dev.vars.example` turns on `PINGONE_MOCK` and `JEV_MOCK` for local dev.
+With the key empty and `JEV_MOCK` unset, a signed-in POST returns the same 503
+as production: `Jev is switched off until an API key is set.` Unsigned requests get 401 first.
 
 On a deployed Worker the key is a secret, not a var in `wrangler.jsonc`:
 
@@ -189,7 +266,7 @@ local `wrangler dev` requests. Leave it unset once the key is real.
 
 ## Run
 
-The API and the built UI are one Cloudflare Worker (free plan: 10 ms CPU). Build the UI, then start Wrangler:
+The API and the built UI are one Cloudflare Worker on the free plan. `wrangler.jsonc` does not set `limits.cpu_ms` (Cloudflare error 100328). Build the UI, then start Wrangler:
 
 ```sh
 npm test                                 # policy math and the HTTP contract
@@ -218,7 +295,7 @@ The UI has tabs (`#sandwich`, `#cult`, `#chaos`), one per Jev primitive:
 | Cult | Score (ordered levels + distribution) | `Cult`, `POST /api/cult/score` |
 | Chaos | Choice (pick one) + Noul + Score fan-out | `Chaos`, `POST /api/chaos/route` |
 
-- `src/worker/`: Hono on a Worker. `routes/api.ts` is the `/api` router (auth middleware for a later change mounts here). `jev/client.ts` POSTs `https://api.typesafe.ai/v1/systemone`, the same HTTP call estimator-demo uses, with `fetch.bind(globalThis)` so workerd does not throw `Illegal invocation`. The JS SDK would retry and add weight this free-plan Worker does not need. `policy/` holds the questions and the verdict math.
+- `src/worker/`: Hono on a Worker. `routes/auth.ts` is the PingOne BFF (ported from estimator-demo). `routes/api.ts` is the `/api` router. Session and pilot checks run in middleware in front of the three Jev POSTs. `jev/client.ts` POSTs `https://api.typesafe.ai/v1/systemone`, the same HTTP call estimator-demo uses, with `fetch.bind(globalThis)` so workerd does not throw `Illegal invocation`. The JS SDK would retry and add weight this free-plan Worker does not need. `policy/` holds the questions and the verdict math.
 - `web/`: the React + TypeScript app (`src/views/` has one component per tab, `src/api.ts` has the typed API contract, `src/Whiteboard.tsx` is the tldraw modal)
 - `web/dist/`: the build output the Worker serves as static assets (git-ignored)
 - Chaos tab: the auto-route confidence threshold is adjustable in the browser and flips the decision without calling Jev again.
@@ -234,8 +311,7 @@ npx wrangler dev --ip 0.0.0.0 --port 8787
 ```
 
 Then open `http://<this-machine's-LAN-IP>:8787` from another laptop on the same Wi-Fi.
-There's no login, so anyone who can reach that address can run requests on your TypeSafe API key. Keep it to a trusted network.
-Your key stays in `.dev.vars` on the server and is never sent to browsers.
+The login page is in front. With `PINGONE_MOCK=true`, that laptop can use the fake PingOne account above. Your TypeSafe key stays in `.dev.vars` and is never sent to browsers.
 
 ## Debug in VS Code
 

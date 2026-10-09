@@ -1,4 +1,7 @@
 import type { Context, Hono } from "hono";
+import { pilotSettings } from "../ai/access";
+import { consumeAiBudget, recordAiTokens } from "../ai/budget";
+import type { SessionRecord } from "../auth/types";
 import { PublicCopy } from "../copy";
 import type { Env } from "../env";
 import { HttpError, JsonRequest } from "../http";
@@ -12,14 +15,14 @@ import { Runtime } from "../runtime";
 import { SpendClient } from "../spend/client";
 import { SpendPolicy } from "../spend/policy";
 
-type App = Hono<{ Bindings: Env }>;
-type AppContext = Context<{ Bindings: Env }>;
+type AppEnv = { Bindings: Env; Variables: { session?: SessionRecord } };
+type App = Hono<AppEnv>;
+type AppContext = Context<AppEnv>;
 
 /**
- * All `/api` routes live on one router so issue #2 can mount session
- * middleware in front of them (`api.use("*", ...)`) without moving paths.
- * Config reads can stay open by exempting them inside that middleware,
- * the way estimator-demo's `aiGateCovers` skips `/api/ai/status`.
+ * Config GETs stay public. The three Jev POSTs are gated by the router
+ * middleware before they reach `ask`: signed-in session, then pilot membership.
+ * `ask` then applies the $2 spend cap, then the per-user and per-IP limits.
  */
 export class ApiRoutes {
   static mount(api: App): void {
@@ -63,7 +66,11 @@ export class ApiRoutes {
     questions: Record<string, JevQuestion>,
     present: (answers: Record<string, JevAnswer>, latencyMs: number) => T,
   ): Promise<Response> {
+    const session = c.get("session");
+    if (!session) throw new HttpError(401, "Sign in to continue.");
+
     if (Runtime.useMock(c.env, c.req.raw)) {
+      await ApiRoutes.countUser(c, session);
       c.header("x-jev-source", LocalJevMock.source);
       const started = Date.now();
       return c.json(present(LocalJevMock.respond(state, questions).answers, Date.now() - started));
@@ -83,6 +90,13 @@ export class ApiRoutes {
       now: Date.now(),
     });
 
+    try {
+      await ApiRoutes.countUser(c, session);
+    } catch (error) {
+      await SpendClient.release(c.env);
+      throw error;
+    }
+
     const started = Date.now();
     let result;
     try {
@@ -97,6 +111,7 @@ export class ApiRoutes {
       usd: SpendPolicy.estimatedUsd(result.usage.input_tokens, result.usage.output_tokens),
       now: Date.now(),
     });
+    await ApiRoutes.rememberTokens(c, session, result.usage.input_tokens + result.usage.output_tokens);
 
     try {
       return c.json(present(result.answers, Date.now() - started));
@@ -105,5 +120,28 @@ export class ApiRoutes {
       const message = error instanceof Error ? error.message : String(error);
       throw new HttpError(502, `Jev request failed: ${message}`);
     }
+  }
+
+  /** Per-user call budget. Runs only after the spend cap has allowed the call. */
+  private static async countUser(c: AppContext, session: SessionRecord): Promise<void> {
+    const kv = c.env.SESSIONS;
+    if (!kv) throw new HttpError(503, PublicCopy.unavailable);
+    const settings = pilotSettings(c.env);
+    await consumeAiBudget(kv, {
+      userId: session.user.id,
+      callsPerHour: settings.callsPerHour,
+      tokensPerDay: settings.tokensPerDay,
+      tokens: 0,
+    });
+  }
+
+  private static async rememberTokens(c: AppContext, session: SessionRecord, tokens: number): Promise<void> {
+    const kv = c.env.SESSIONS;
+    if (!kv || tokens <= 0) return;
+    await recordAiTokens(kv, {
+      userId: session.user.id,
+      tokens,
+      tokensPerDay: pilotSettings(c.env).tokensPerDay,
+    });
   }
 }

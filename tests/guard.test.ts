@@ -4,6 +4,7 @@ import { PublicCopy } from "../src/worker/copy";
 import type { Env } from "../src/worker/env";
 import { Runtime } from "../src/worker/runtime";
 import { SpendPolicy } from "../src/worker/spend/policy";
+import { attachMember } from "./account";
 import { ScriptedSpend } from "./fake-spend";
 
 afterEach(() => {
@@ -20,11 +21,15 @@ function jevBody(usage = { input_tokens: 1_000_000, output_tokens: 0 }) {
 }
 
 async function post(path: string, body: unknown, env: Env, init: RequestInit = {}) {
+  const account = await attachMember(env);
+  const headers = new Headers(init.headers);
+  headers.set("content-type", "application/json");
+  headers.set("cookie", account.cookie);
+  headers.set("x-csrf-token", account.csrf);
   return app.request(path, {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    headers,
     body: JSON.stringify(body),
-    ...init,
   }, env);
 }
 
@@ -60,8 +65,38 @@ describe("missing key", () => {
     expect(fetchImpl).not.toHaveBeenCalled();
     const request = new Request("https://jev-primitives.bobbylite.workers.dev/api/classify");
     expect(Runtime.useMock({ JEV_MOCK: "true" }, request)).toBe(true);
+    expect(Runtime.usePingMock({ PINGONE_MOCK: "true" }, request)).toBe(true);
     request.headers.set("cf-ray", "abc-SJC");
     expect(Runtime.useMock({ JEV_MOCK: "true" }, request)).toBe(false);
+    expect(Runtime.usePingMock({ PINGONE_MOCK: "true" }, request)).toBe(false);
+  });
+
+  it("does not turn PingOne mock on for an edge request", async () => {
+    const env = {
+      PINGONE_MOCK: "true",
+      PINGONE_ENV_ID: "c74a4945-1364-4966-9a68-abeaa3e7b767",
+      PINGONE_CLIENT_ID: "55833d59-268f-4355-a46c-030fdf10c206",
+    };
+    const config = await app.request("/api/auth/config", { headers: { "cf-ray": "abc-SJC" } }, env);
+    expect(await config.json()).toEqual({ mock: false, hints: null });
+    const start = await app.request("/api/auth/login/start", {
+      method: "POST",
+      headers: { "cf-ray": "abc-SJC" },
+    }, env);
+    expect(start.status).toBe(503);
+    const body = await start.json() as { detail?: string; step?: string };
+    expect(body.step).toBeUndefined();
+    expect(body.detail).toMatch(/PingOne is not configured/);
+    const local = await app.request("/api/auth/config", {}, { PINGONE_MOCK: "true" });
+    expect(await local.json()).toMatchObject({ mock: true, hints: { username: "robert@meridian.test" } });
+    const wrangler = new Request("http://127.0.0.1:8787/api/auth/config");
+    (wrangler as Request & { cf?: unknown }).cf = { colo: "PDX", clientAcceptEncoding: "" };
+    expect(Runtime.usePingMock({ PINGONE_MOCK: "true" }, wrangler)).toBe(true);
+    const edged = new Request("https://jev-primitives.bobbylite.workers.dev/api/auth/config");
+    (edged as Request & { cf?: unknown }).cf = { colo: "SJC" };
+    edged.headers.set("cf-ray", "abc-SJC");
+    expect(Runtime.usePingMock({ PINGONE_MOCK: "true" }, edged)).toBe(false);
+    expect(Runtime.useMock({ JEV_MOCK: "true" }, edged)).toBe(false);
   });
 });
 

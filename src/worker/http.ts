@@ -1,18 +1,23 @@
-/** Error body the React UI already reads: `{ detail }` on 4xx and 502. */
+/** Error body the React UI already reads: `{ detail }` on 4xx and 502. `kind` is added for auth and the pilot gate. */
 export class HttpError extends Error {
   readonly status: number;
+  readonly kind?: string;
 
-  constructor(status: number, message: string) {
+  constructor(status: number, message: string, kind?: string) {
     super(message);
     this.name = "HttpError";
     this.status = status;
+    if (kind !== undefined) this.kind = kind;
   }
 }
 
 export class ErrorBody {
   static from(err: unknown): Response {
     if (err instanceof HttpError) {
-      return Response.json({ detail: err.message }, { status: err.status });
+      return Response.json(
+        { detail: err.message, ...(err.kind ? { kind: err.kind } : {}) },
+        { status: err.status },
+      );
     }
     console.error(err);
     return Response.json({ detail: "Internal server error" }, { status: 500 });

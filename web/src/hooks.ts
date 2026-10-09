@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { api } from "./api";
+import { ApiError, api } from "./api";
+import { notifyBlocked, notifyReauth } from "./auth/signals";
 
 /** Fetch a config endpoint once. */
 export function useConfig<T>(path: string): T | undefined {
@@ -37,6 +38,14 @@ export function useRun<R>(path: string, field: string) {
         setState({ status: "idle" });
         return result;
       } catch (e) {
+        if (e instanceof ApiError && (e.status === 401 || e.kind === "reauth_required")) {
+          notifyReauth();
+          return undefined;
+        }
+        if (e instanceof ApiError && e.kind === "pilot_required") {
+          notifyBlocked();
+          return undefined;
+        }
         if (!mine.signal.aborted) setState({ status: "error", message: e instanceof Error ? e.message : String(e) });
         return undefined;
       }
