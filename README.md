@@ -5,7 +5,36 @@ primitive: **Noul** (is it a sandwich?), **Score** (how much of a cult is it?) a
 **Choice** (route the chaos). Jev returns typed judgments and probabilities; plain
 code owns the policy that turns them into decisions.
 
-The original CLI version of the sandwich demo is `sandwich.py`. A web UI covering all three is below.
+Question text, weights, and the policy that turns Jev's answers into a verdict live in `src/worker/policy/`. A web UI covering all three is served by the same Worker.
+
+## Live demo
+
+https://jev-primitives.bobbylite.workers.dev
+
+The site is one free-plan Worker named `jev-primitives`. The first deploy ships **without** `TYPESAFE_API_KEY`, on purpose, until the PingOne gate lands. While that secret is unset, the three Jev POST routes do not call TypeSafe. They return **503** with:
+
+```json
+{"detail":"Jev is switched off until pilot login is live"}
+```
+
+The Sandwich, Cult, and Chaos tabs show that sentence in the error box. `GET /api/config`, `GET /api/cult/config`, `GET /api/chaos/config`, and the page itself keep working.
+
+Pushing `main` (or running the Deploy workflow by hand) ships it. The workflow is `.github/workflows/deploy.yml`: a verify job (`npm ci`, typecheck, test, build) and then a deploy job. Deploy fails with the missing secret **names** if either of these repository secrets is absent:
+
+- `CLOUDFLARE_API_TOKEN`
+- `CLOUDFLARE_ACCOUNT_ID`
+
+`TYPESAFE_API_KEY` is a Worker secret, set once, never committed and never a var in `wrangler.jsonc`:
+
+```sh
+npx wrangler secret put TYPESAFE_API_KEY --name jev-primitives
+```
+
+Until that command has been run, the live site stays on the 503 above.
+
+Jev calls share a hard **$2 per UTC day** budget (`JEV_DAILY_BUDGET_USD`, default `"2"`, reset at midnight UTC). The counter is a SQLite Durable Object (`SpendLedger`). `wrangler deploy` applies the migration in `wrangler.jsonc`, so the first Actions deploy does not need a pre-created KV namespace or D1 database id. A call under the cap reserves the rest of the day's budget first; the real token cost is written after Jev returns. If the counter cannot be read or written, the Worker refuses the call with 503 and does not reach Jev. `JEV_IP_CALLS_PER_HOUR` (default `30`, `0` to disable) is a modest per-IP limit on the same object. Cost is estimated the same way as estimator-demo: $15 / 1M input tokens and $60 / 1M output tokens, which sits high on purpose so the cap trips before real spend does.
+
+`JEV_MOCK=true` returns canned answers under `wrangler dev` only. It is ignored on the edge, where Cloudflare sets `cf-ray` and `request.cf` before the Worker runs, so a production var of the same name cannot turn the mock on.
 
 ## Why TypeSafe and Jev are powerful
 
@@ -89,7 +118,7 @@ fit when you have lots of labeled data and a stable task, and it is often cheap 
 once built.
 
 **Jev** is a general decision model that you point at a different question on every
-request. Look at `sandwich.py`, `cult.py` and `chaos.py`: each one hands Jev some
+request. Look at `src/worker/policy/sandwich.ts`, `cult.ts` and `chaos.ts`: each one hands Jev some
 `state` plus questions written in plain English with their own `criteria`. There is
 no dataset, no training run and no label list baked into the model. Add a question,
 reword a criterion or swap a Choice option and the next request uses it.
@@ -120,9 +149,9 @@ calibration on your own data instead of assuming them.
 
 | Primitive | Question it answers | Demo | Code owns |
 | --- | --- | --- | --- |
-| [Noul](https://docs.typesafe.ai/primitives/noul) | Does this condition hold? (probability of yes) | Is it a sandwich? | Weights and the sandwich / contested / not thresholds |
-| [Score](https://docs.typesafe.ai/primitives/score) | How much, along an ordered scale? | How much of a cult is it? | Dimension weights and tier labels |
-| [Choice](https://docs.typesafe.ai/primitives/choice) | Which one of these? | Route the chaos | Confidence cutoff and priority from urgency and anger |
+| [Noul](https://docs.typesafe.ai/primitives/noul) | Does this condition hold? (probability of yes) | Is it a sandwich? | `Sandwich` weights and the sandwich / contested / not thresholds |
+| [Score](https://docs.typesafe.ai/primitives/score) | How much, along an ordered scale? | How much of a cult is it? | `Cult` dimension weights and tier labels |
+| [Choice](https://docs.typesafe.ai/primitives/choice) | Which one of these? | Route the chaos | `Chaos` confidence cutoff and priority from urgency and anger |
 
 ### TypeSafe documentation
 
@@ -132,53 +161,47 @@ calibration on your own data instead of assuming them.
 - Primitives: [overview](https://docs.typesafe.ai/primitives), [Noul](https://docs.typesafe.ai/primitives/noul), [Score](https://docs.typesafe.ai/primitives/score), [Choice](https://docs.typesafe.ai/primitives/choice)
 - [Confidence](https://docs.typesafe.ai/confidence)
 - Patterns: [composite scoring](https://docs.typesafe.ai/patterns/composite-scoring), [speculative fan-out](https://docs.typesafe.ai/patterns/fan-out)
-- [Python SDK](https://docs.typesafe.ai/sdk/python) and [HTTP API](https://docs.typesafe.ai/api)
+- SDKs: [JavaScript](https://docs.typesafe.ai/sdk/javascript), [Python](https://docs.typesafe.ai/sdk/python), and the [HTTP API](https://docs.typesafe.ai/api) this Worker calls
 - [Get an API key](https://console.typesafe.ai/)
 
 ## Setup
 
-Prerequisites: Python 3.11+, Node 22.12+ (needed by Vite and tldraw), and optionally
-[uv](https://docs.astral.sh/uv/). One command does everything and is safe to re-run:
+Prerequisite: Node 22.12+ (needed by Vite, tldraw, and Wrangler). One command does everything and is safe to re-run:
 
 ```sh
-bash scripts/setup.sh    # venv + Python deps, npm deps, .env from .env.example, UI build
+bash scripts/setup.sh    # npm deps, .dev.vars from .dev.vars.example, UI build
 ```
 
-Then put your key from https://console.typesafe.ai/ in `.env`. The script checks your
-Python and Node versions, uses `uv sync` if uv is installed (otherwise `venv` + `pip`),
-and warns if `TYPESAFE_API_KEY` isn't set.
+Then put your key from https://console.typesafe.ai/ in `.dev.vars` as `TYPESAFE_API_KEY`.
+That file is gitignored. Wrangler reads it for local dev. The script warns if the key
+isn't set. With the key empty and `JEV_MOCK` unset, local POSTs return the same 503
+as production: `Jev is switched off until pilot login is live`.
+
+On a deployed Worker the key is a secret, not a var in `wrangler.jsonc`:
+
+```sh
+npx wrangler secret put TYPESAFE_API_KEY --name jev-primitives
+```
+
+Set `JEV_MOCK=true` in `.dev.vars` when you want the UI without a key. That returns
+canned answers labeled `local-mock` and does not call TypeSafe. It only applies to
+local `wrangler dev` requests. Leave it unset once the key is real.
 
 ## Run
 
-```sh
-set -a; source .env; set +a                  # load the API key
-.venv/bin/python sandwich.py                 # built-in examples
-.venv/bin/python sandwich.py "gyro" "pizza"  # your own foods
-```
-
-Example output format:
-
-```
-BLT                      -> SANDWICH (0.9x)
-                           bread=0.99  filling=0.99  ...
-```
-
-## Web UI
-
-A dark, flat single-page UI built with React 19, TypeScript and Vite, backed by
-FastAPI. It shows every signal Jev returned, the criteria behind each question,
-and the math the code used to reach the verdict.
+The API and the built UI are one Cloudflare Worker (free plan: 10 ms CPU). Build the UI, then start Wrangler:
 
 ```sh
-uv sync                                  # Python deps (or: .venv/bin/pip install -e .)
-npm install && npm run build             # builds the UI into web/dist
-set -a; source .env; set +a
-uv run uvicorn app:app --reload          # http://127.0.0.1:8000 serves the API and the built UI
+npm test                                 # policy math and the HTTP contract
+npm run build                            # typecheck + Vite build into web/dist
+npx wrangler dev                         # http://127.0.0.1:8787 serves /api and the UI
 ```
 
-For front-end work, run the API as above and, in a second terminal, `npm run dev`.
+`npm run size` is `wrangler deploy --dry-run`. It prints the compressed Worker size and does not deploy.
+
+For front-end work, run `npx wrangler dev` and, in a second terminal, `npm run dev`.
 Vite serves the UI with hot reload at http://localhost:5173 and proxies `/api` to
-FastAPI on port 8000. `npm run typecheck` runs `tsc`.
+the Worker on port 8787. `npm run typecheck` runs `tsc` for the UI and the Worker.
 
 **Whiteboard:** the icon in the top-right corner opens a [tldraw](https://tldraw.dev/)
 whiteboard in a dark-themed modal. It's lazy-loaded, so tldraw is only downloaded the
@@ -191,46 +214,40 @@ The UI has tabs (`#sandwich`, `#cult`, `#chaos`), one per Jev primitive:
 
 | Tab | Primitive | Backend |
 | --- | --- | --- |
-| Sandwich | Noul (yes/no probabilities) | `sandwich.py`, `POST /api/classify` |
-| Cult | Score (ordered levels + distribution) | `cult.py`, `POST /api/cult/score` |
-| Chaos | Choice (pick one) + Noul + Score fan-out | `chaos.py`, `POST /api/chaos/route` |
+| Sandwich | Noul (yes/no probabilities) | `Sandwich`, `POST /api/classify` |
+| Cult | Score (ordered levels + distribution) | `Cult`, `POST /api/cult/score` |
+| Chaos | Choice (pick one) + Noul + Score fan-out | `Chaos`, `POST /api/chaos/route` |
 
-- `app.py`: FastAPI + Pydantic backend
+- `src/worker/`: Hono on a Worker. `routes/api.ts` is the `/api` router (auth middleware for a later change mounts here). `jev/client.ts` POSTs `https://api.typesafe.ai/v1/systemone`, the same HTTP call estimator-demo uses, with `fetch.bind(globalThis)` so workerd does not throw `Illegal invocation`. The JS SDK would retry and add weight this free-plan Worker does not need. `policy/` holds the questions and the verdict math.
 - `web/`: the React + TypeScript app (`src/views/` has one component per tab, `src/api.ts` has the typed API contract, `src/Whiteboard.tsx` is the tldraw modal)
-- `web/dist/`: the build output FastAPI serves (git-ignored)
+- `web/dist/`: the build output the Worker serves as static assets (git-ignored)
 - Chaos tab: the auto-route confidence threshold is adjustable in the browser and flips the decision without calling Jev again.
 - Cult tab: weights are adjustable in the browser and recompute the index without calling Jev again.
+
+The Python FastAPI app and the `sandwich.py` CLI are gone. The CLI only existed to print the same policy the Worker now owns, and it depended on the Python SDK. The numbers are pinned by `npm test` instead.
 
 ## Use it from other devices on your network
 
 ```sh
 npm run build
-set -a; source .env; set +a
-.venv/bin/uvicorn app:app --host 0.0.0.0 --port 8000
+npx wrangler dev --ip 0.0.0.0 --port 8787
 ```
 
-Then open `http://<this-machine's-LAN-IP>:8000` from another laptop on the same Wi-Fi.
-In VS Code, the **Web UI: serve on LAN (0.0.0.0:8000)** launch config does the build,
-starts the server and prints the address. There's no login, so anyone who can reach
-that address can run requests on your TypeSafe API key. Keep it to a trusted network.
-Your key stays on the server and is never sent to browsers.
+Then open `http://<this-machine's-LAN-IP>:8787` from another laptop on the same Wi-Fi.
+There's no login, so anyone who can reach that address can run requests on your TypeSafe API key. Keep it to a trusted network.
+Your key stays in `.dev.vars` on the server and is never sent to browsers.
 
 ## Debug in VS Code
 
 Open the folder, then use **Run and Debug** and pick:
 
-- **Web UI: build + FastAPI (debug)**: sets everything up, builds the UI, starts the
-  API with the debugger attached and opens http://127.0.0.1:8000
-- **Full stack: FastAPI + Vite (hot reload)**: runs setup, then the API and the Vite
-  dev server together (the browser opens on port 5173; stopping one stops both)
-- **Web UI: serve on LAN (0.0.0.0:8000)**: same, but reachable from other devices on your network
-- **Sandwich: built-in examples** / **Sandwich: custom foods** (prompts for a food): the CLI demo
+- **Worker: wrangler dev**: runs setup, builds the UI, and serves http://127.0.0.1:8787
+- **Web UI: Vite dev server**: hot reload on port 5173. Start the Worker first so `/api` has somewhere to go.
 
-Each one runs the **Setup** task first (`scripts/setup.sh`), so a fresh clone works
-without any manual steps. Python launches use `.venv` and load `TYPESAFE_API_KEY` from `.env`.
-The tasks are also available from **Terminal → Run Task**.
+Each one runs a **Setup** task first (`scripts/setup.sh`), so a fresh clone works
+without any manual steps. The tasks are also available from **Terminal → Run Task**.
+**Worker: wrangler dev** is there too, if you already built the UI.
 
 ## Tuning
 
-Edit `verdict()` in `sandwich.py` to change the weights and the 0.35 / 0.65
-thresholds, or add questions to `QUESTIONS`.
+Edit `Sandwich.explain()` to change the weights and the 0.35 / 0.65 thresholds, or add questions on `Sandwich.questions`. Cult weights and tiers are `Cult.defaultWeights` and `Cult.tiers`. Chaos cutoffs are `Chaos.confidenceAt` and `Chaos.priorityCuts`.

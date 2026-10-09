@@ -152,7 +152,7 @@ function Result({ r, config }: { r: CultResult; config: CultConfig }) {
         {r.dimensions.map((d, i) => <DimensionCard key={d.id} d={d} i={i} />)}
       </div>
 
-      <SectionHead title="How the composite is built" note="Policy lives in cult.py" wait={0.6} />
+      <SectionHead title="How the composite is built" note="Policy lives in the Worker" wait={0.6} />
       <div className="panel reveal formula" style={delay(0.65)}>
         {r.dimensions.map((d) => (
           <div key={d.id}>

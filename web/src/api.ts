@@ -1,4 +1,4 @@
-/** Wire types. These mirror the Pydantic models in app.py. */
+/** Wire types. These mirror the JSON the Worker returns. */
 
 export interface Signal {
   id: string;

@@ -1,0 +1,27 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "jev-primitives",
+  "compatibility_date": "2026-10-08",
+  "main": "src/worker/index.ts",
+  // Free plan budget. Do not raise this: 10 ms CPU per request is the cap.
+  "limits": { "cpu_ms": 10 },
+  "vars": {
+    "JEV_DAILY_BUDGET_USD": "2",
+    "JEV_IP_CALLS_PER_HOUR": "30"
+  },
+  // SQLite Durable Object. No pre-created id: `wrangler deploy` applies the migration.
+  "durable_objects": {
+    "bindings": [
+      { "name": "SPEND", "class_name": "SpendLedger" }
+    ]
+  },
+  "migrations": [
+    { "tag": "v1", "new_sqlite_classes": ["SpendLedger"] }
+  ],
+  "assets": {
+    "directory": "./web/dist",
+    "not_found_handling": "single-page-application",
+    // API requests hit the Worker. Everything else is the built React app.
+    "run_worker_first": ["/api/*"]
+  }
+}
