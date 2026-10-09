@@ -9,6 +9,7 @@ export class ScriptedSpend {
   recordError: Error | null = null;
   recordedUsd: number | undefined;
   released = false;
+  requests: string[] = [];
 
   binding(): NonNullable<Env["SPEND"]> {
     const self = this;
@@ -18,6 +19,7 @@ export class ScriptedSpend {
         fetch: async (input: RequestInfo | URL, init?: RequestInit) => {
           const request = new Request(input, init);
           const path = new URL(request.url).pathname;
+          self.requests.push(path);
           if (path.endsWith("/gate")) {
             if (self.gateError) throw self.gateError;
             return Response.json(self.gateBody, { status: self.gateStatus });

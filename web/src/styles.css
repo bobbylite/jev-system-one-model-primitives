@@ -202,3 +202,51 @@ dialog.wb::backdrop { background: rgba(8, 8, 7, .72); backdrop-filter: blur(6px)
 .wb .tl-container { border-radius: 0; }
 .wb-loading { position: fixed; inset: auto 24px 24px auto; padding: 10px 16px; border: 1px solid var(--line); border-radius: 999px;
               background: var(--surface); color: var(--ink-2); font: 400 12px "JetBrains Mono", monospace; z-index: 10; }
+
+.who { color: var(--ink-2); font-size: 13px; }
+.text-btn { background: none; border: 0; color: var(--ink-2); font: 500 13px Inter, sans-serif; cursor: pointer; padding: 0; }
+.text-btn:hover { color: var(--ink); }
+.sign-out { border: 1px solid var(--line); border-radius: 999px; padding: 8px 14px; }
+.sign-out:hover { border-color: var(--ink-3); }
+
+.gate { min-height: 100vh; display: grid; grid-template-columns: 1.1fr .9fr; }
+.gate-story, .gate-panel { padding: 72px 56px; display: flex; flex-direction: column; justify-content: center; }
+.gate-story { border-right: 1px solid var(--line); }
+.gate-story h1 { font-size: clamp(52px, 6vw, 84px); }
+.gate-points { list-style: none; margin-top: 48px; display: grid; gap: 14px; padding: 0; }
+.gate-points li { display: flex; justify-content: space-between; gap: 24px; border-top: 1px solid var(--line); padding-top: 14px; }
+.gate-points b { font: 500 12px "JetBrains Mono", monospace; letter-spacing: .08em; }
+.gate-points span { color: var(--ink-2); }
+.gate form { display: flex; flex-direction: column; margin: 0; animation: none; }
+.gate-card { border: 1px solid var(--line); background: var(--surface); border-radius: 20px; padding: 32px; max-width: 440px; }
+.gate-card h2 { font: 400 40px "Instrument Serif", serif; letter-spacing: -.02em; margin: 8px 0 12px; }
+.gate-sub { color: var(--ink-2); margin-bottom: 22px; }
+.gate-field { display: grid; gap: 8px; margin-bottom: 16px; color: var(--ink-2); font-size: 13px; }
+.gate-field input { width: 100%; }
+.gate-password { display: flex; gap: 8px; align-items: center; }
+.gate-password input { flex: 1; }
+.gate-submit { width: 100%; height: 52px; margin-top: 8px; }
+.gate-again { display: block; margin: 14px auto 0; }
+.gate-fine { color: var(--ink-3); font-size: 12px; margin-top: 18px; }
+.gate-switch { margin-top: 18px; color: var(--ink-2); font-size: 14px; }
+.gate-wait { margin: auto; color: var(--ink-3); font: 400 12px "JetBrains Mono", monospace; }
+.mock-banner { border: 1px dashed var(--line); border-radius: 14px; padding: 14px 16px; margin-bottom: 18px; color: var(--ink-2); font-size: 13px; }
+.mock-banner .eyebrow { margin-bottom: 6px; }
+.mock-actions { display: flex; gap: 16px; margin-top: 10px; }
+.gate-devices { display: grid; gap: 8px; margin-bottom: 16px; }
+.gate-device { display: flex; gap: 10px; align-items: center; border: 1px solid var(--line); border-radius: 12px; padding: 12px; }
+.gate-device small { display: block; color: var(--ink-3); font: 400 11px "JetBrains Mono", monospace; }
+.gate-note { color: var(--yes); font-size: 13px; margin-bottom: 12px; }
+.gate-reqs { margin: 8px 0 0 18px; }
+.gate-fault { margin-top: 12px; display: grid; gap: 6px; }
+.gate-fault div { display: grid; grid-template-columns: 110px 1fr; gap: 8px; }
+.gate-fault dt { color: var(--ink-3); font: 500 11px "JetBrains Mono", monospace; }
+.gate-fault dd { color: var(--ink); font-size: 12px; overflow-wrap: anywhere; }
+.gate .error { margin-bottom: 16px; }
+.gate .error p { margin: 0; }
+@media (max-width: 860px) {
+  .gate { grid-template-columns: 1fr; }
+  .gate-story, .gate-panel { padding: 40px 24px; }
+  .gate-story { border-right: 0; border-bottom: 1px solid var(--line); }
+  .gate-card { max-width: none; }
+}

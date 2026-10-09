@@ -3,6 +3,7 @@ import app from "../src/worker/index";
 import { PublicCopy } from "../src/worker/copy";
 import type { Env } from "../src/worker/env";
 import { JevClient } from "../src/worker/jev/client";
+import { attachMember } from "./account";
 import { ScriptedSpend } from "./fake-spend";
 
 const mockEnv: Env = { JEV_MOCK: "true" };
@@ -13,11 +14,15 @@ afterEach(() => {
 });
 
 async function post(path: string, body: unknown, env: Env = mockEnv, init: RequestInit = {}) {
+  const account = await attachMember(env);
+  const headers = new Headers(init.headers);
+  headers.set("content-type", "application/json");
+  headers.set("cookie", account.cookie);
+  headers.set("x-csrf-token", account.csrf);
   return app.request(path, {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    headers,
     body: JSON.stringify(body),
-    ...init,
   }, env);
 }
 
@@ -158,9 +163,19 @@ describe("POST endpoints", () => {
       const payload = await response.json() as { detail?: unknown };
       expect(typeof payload.detail).toBe("string");
     }
-    const invalid = await app.request("/api/classify", { method: "POST", body: "not-json" }, mockEnv);
+    const invalidAccount = await attachMember(mockEnv);
+    const invalid = await app.request("/api/classify", {
+      method: "POST",
+      body: "not-json",
+      headers: { cookie: invalidAccount.cookie, "x-csrf-token": invalidAccount.csrf },
+    }, mockEnv);
     expect(invalid.status).toBe(422);
-    const arrayBody = await app.request("/api/classify", { method: "POST", body: "[]" }, mockEnv);
+    const arrayAccount = await attachMember(mockEnv);
+    const arrayBody = await app.request("/api/classify", {
+      method: "POST",
+      body: "[]",
+      headers: { cookie: arrayAccount.cookie, "x-csrf-token": arrayAccount.csrf },
+    }, mockEnv);
     expect(arrayBody.status).toBe(422);
     const atLimit = await post("/api/classify", { food: "x".repeat(80) });
     expect(atLimit.status).toBe(200);
